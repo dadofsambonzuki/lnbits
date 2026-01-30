@@ -12,10 +12,12 @@ from lnbits.core.crud import create_wallet, get_standalone_payment, get_wallet
 from lnbits.core.crud.payments import get_payment, get_payments_paginated
 from lnbits.core.models import PaymentState, Wallet
 from lnbits.core.services import create_invoice, create_user_account, pay_invoice
-from lnbits.core.services.payments import update_wallet_balance
+from lnbits.core.services.payments import (
+    update_wallet_balance,
+)
 from lnbits.exceptions import InvoiceError, PaymentError
 from lnbits.settings import Settings
-from lnbits.tasks import create_task, wait_for_paid_invoices
+from lnbits.task_manager import task_manager
 from lnbits.wallets.base import PaymentResponse
 from lnbits.wallets.fake import FakeWallet
 
@@ -232,16 +234,22 @@ async def test_notification_for_internal_payment(
     test_name = "test_notification_for_internal_payment"
 
     on_paid_mock = mocker.AsyncMock()
-    create_task(wait_for_paid_invoices(test_name, on_paid_mock)())
+
+    task_manager.register_invoice_listener(on_paid_mock, test_name)
+
     payment = await create_invoice(
         wallet_id=to_wallet.id,
         amount=123,
         memo=test_name,
         webhook="http://test.404.lnbits.com",
     )
-    await pay_invoice(
+    paid_payment = await pay_invoice(
         wallet_id=to_wallet.id, payment_request=payment.bolt11, extra={"tag": "lnurlp"}
     )
+    assert paid_payment.status == PaymentState.SUCCESS.value
+    assert paid_payment.bolt11 == payment.bolt11
+    assert paid_payment.amount == -123_000
+
     await asyncio.sleep(1)
 
     assert on_paid_mock.call_count == 1
@@ -251,6 +259,8 @@ async def test_notification_for_internal_payment(
     assert _payment.status == PaymentState.SUCCESS.value
     assert _payment.bolt11 == payment.bolt11
     assert _payment.amount == 123_000
+    assert _payment.checking_id == payment.checking_id
+
     updated_payment = await get_payment(_payment.checking_id)
     assert updated_payment.webhook_status == "404"
 
