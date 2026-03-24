@@ -1024,7 +1024,6 @@ class EnvSettings(LNbitsSettings):
     log_retention: str = Field(default="3 months")
     first_install_token: str | None = Field(default=None)
 
-    check_pending_payments_interval: int = Field(default=30 * 60, ge=10)
     cleanup_wallets_days: int = Field(default=90, ge=0)
     funding_source_max_retries: int = Field(default=4, ge=0)
 
