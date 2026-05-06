@@ -25,6 +25,7 @@ class Cache:
     def __init__(self, interval: float = 10) -> None:
         self.interval = interval
         self._values: dict[Any, Cached] = {}
+        self._refreshing: set[str] = set()
 
     def value(self, key: str) -> Cached | None:
         return self._values.get(key)
@@ -49,15 +50,33 @@ class Cache:
 
     async def save_result(self, coro, key: str, expiry: float = 10):
         """
-        If `key` exists, return its value, otherwise call coro and cache its result
+        Stale-while-revalidate: return stale value immediately and refresh in
+        the background. Only blocks on a true cold start (no prior value).
         """
-        cached = self.get(key)
-        if cached:
-            return cached
-        else:
+        cached = self._values.get(key)
+        if cached is not None:
+            if cached.expiry > time():
+                return cached.value
+            # stale: serve old value and refresh in background (one task at a time)
+            if key not in self._refreshing:
+                self._refreshing.add(key)
+                # extend expiry now to prevent a stampede of background tasks
+                self._values[key] = Cached(cached.value, time() + expiry)
+                asyncio.create_task(self._refresh(coro, key, expiry))
+            return cached.value
+        # cold start: must wait for the first value
+        value = await coro()
+        self.set(key, value, expiry=expiry)
+        return value
+
+    async def _refresh(self, coro, key: str, expiry: float):
+        try:
             value = await coro()
             self.set(key, value, expiry=expiry)
-            return value
+        except Exception:
+            logger.error(f"Error refreshing cache key {key}")
+        finally:
+            self._refreshing.discard(key)
 
     async def invalidate_forever(self):
         while settings.lnbits_running:
