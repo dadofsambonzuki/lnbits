@@ -26,6 +26,7 @@ class Cache:
         self.interval = interval
         self._values: dict[Any, Cached] = {}
         self._refreshing: set[str] = set()
+        self._tasks: set[asyncio.Task] = set()
 
     def value(self, key: str) -> Cached | None:
         return self._values.get(key)
@@ -62,7 +63,9 @@ class Cache:
                 self._refreshing.add(key)
                 # extend expiry now to prevent a stampede of background tasks
                 self._values[key] = Cached(cached.value, time() + expiry)
-                asyncio.create_task(self._refresh(coro, key, expiry))
+                task = asyncio.create_task(self._refresh(coro, key, expiry))
+                self._tasks.add(task)
+                task.add_done_callback(self._tasks.discard)
             return cached.value
         # cold start: must wait for the first value
         value = await coro()
