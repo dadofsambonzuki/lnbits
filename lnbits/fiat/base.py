@@ -127,15 +127,15 @@ class FiatSubscriptionResponse(BaseModel):
 
 
 class FiatPaymentSuccessStatus(FiatPaymentStatus):
-    paid = True
+    paid = True  # type: ignore[reportIncompatibleVariableOverride]
 
 
 class FiatPaymentFailedStatus(FiatPaymentStatus):
-    paid = False
+    paid = False  # type: ignore[reportIncompatibleVariableOverride]
 
 
 class FiatPaymentPendingStatus(FiatPaymentStatus):
-    paid = None
+    paid = None  # type: ignore[reportIncompatibleVariableOverride]
 
 
 class FiatProvider(ABC):
