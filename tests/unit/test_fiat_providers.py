@@ -552,8 +552,7 @@ async def test_check_fiat_status_handles_internal_states(mocker: MockerFixture):
             status=PaymentState.PENDING,
             fiat_provider="stripe",
             extra={"fiat_checking_id": "stripe_checking_id"},
-        ),
-        skip_internal_payment_notifications=True,
+        )
     )
     assert queue_put.await_count == 1
 
