@@ -549,7 +549,7 @@ async def test_check_fiat_status_handles_internal_states(mocker: MockerFixture):
             amount=1000,
             fee=0,
             bolt11="bolt11",
-            status=PaymentState.PENDING,
+            status=PaymentState.SUCCESS,
             fiat_provider="stripe",
             extra={"fiat_checking_id": "stripe_checking_id"},
         )
