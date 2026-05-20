@@ -233,6 +233,14 @@ class LndRestWallet(Wallet):
         )
 
     async def get_invoice_status(self, checking_id: str) -> PaymentStatus:
+        try:
+            checking_id = base64.urlsafe_b64encode(bytes.fromhex(checking_id)).decode(
+                "ascii"
+            )
+        except ValueError:
+            logger.warning("Invalid checking_id format, must be hex: {checking_id}")
+            return PaymentPendingStatus()
+
         r = await self.client.get(url=f"/v1/invoice/{checking_id}")
 
         try:
@@ -264,6 +272,7 @@ class LndRestWallet(Wallet):
                 "ascii"
             )
         except ValueError:
+            logger.warning("Invalid checking_id format, must be hex: {checking_id}")
             return PaymentPendingStatus()
 
         url = f"/v2/router/track/{checking_id}"
