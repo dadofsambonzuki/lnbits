@@ -35,9 +35,7 @@ async def handle_fiat_payment_confirmation(
         logger.warning(e)
 
 
-async def check_fiat_status(
-    payment: Payment, skip_internal_payment_notifications: bool | None = False
-) -> FiatPaymentStatus:
+async def check_fiat_status(payment: Payment) -> FiatPaymentStatus:
     if not payment.is_internal:
         return FiatPaymentPendingStatus()
     if payment.success:
@@ -57,10 +55,9 @@ async def check_fiat_status(
         return FiatPaymentPendingStatus()
     fiat_status = await fiat_provider.get_invoice_status(checking_id)
 
-    if skip_internal_payment_notifications:
-        return fiat_status
-
     if fiat_status.success:
+        await handle_fiat_payment_confirmation(payment)
+
         # notify receivers asynchronously
         from lnbits.tasks import internal_invoice_queue
 
