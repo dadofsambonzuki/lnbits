@@ -10,7 +10,7 @@ from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any, cast
 from urllib.parse import parse_qs, unquote, urlparse
 
-from bolt11 import decode as bolt11_decode
+from bolt11 import Bolt11Exception, decode as bolt11_decode
 from coincurve import PrivateKey, PublicKey
 from Cryptodome.Cipher import ChaCha20
 from Cryptodome.Hash import HMAC, SHA256
@@ -579,7 +579,14 @@ class NWCWallet(Wallet):
             return StatusResponse(str(e), 0)
 
     async def pay_invoice(self, bolt11: str, fee_limit_msat: int) -> PaymentResponse:
-        invoice_data = bolt11_decode(bolt11)
+        try:
+            invoice_data = bolt11_decode(bolt11)
+        except Bolt11Exception as e:
+            return PaymentResponse(
+                ok=False,
+                checking_id=None,
+                error_message=str(e),
+            )
         payment_hash = invoice_data.payment_hash
         try:
             resp = await self.conn.call("pay_invoice", {"invoice": bolt11})
